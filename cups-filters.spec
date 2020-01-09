@@ -4,7 +4,7 @@
 Summary: OpenPrinting CUPS filters and backends
 Name:    cups-filters
 Version: 1.0.35
-Release: 21%{?dist}
+Release: 22%{?dist}
 
 # For a breakdown of the licensing, see COPYING file
 # GPLv2:   filters: commandto*, imagetoraster, pdftops, rasterto*,
@@ -80,7 +80,7 @@ Requires: poppler-utils
 Requires: liberation-mono-fonts
 
 # pstopdf
-Requires: bc grep sed
+Requires: bc grep sed which
 
 # cups-browsed
 Requires(post): systemd
@@ -269,6 +269,9 @@ fi
 %{_libdir}/libfontembed.so
 
 %changelog
+* Thu Mar 02 2017 Zdenek Dohnal <zdohnal@redhat.com> - 1.0.35-22
+- 1427690 - /usr/lib/cups/filter/pstopdf: line 17: which: command not found
+
 * Thu Jul  9 2015 Tim Waugh <twaugh@redhat.com> - 1.0.35-21
 - Fix heap-based buffer overflow in texttopdf filter (bug #1241242,
   CVE-2015-3258, CVE-2015-3279).
