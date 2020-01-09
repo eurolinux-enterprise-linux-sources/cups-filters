@@ -4,7 +4,7 @@
 Summary: OpenPrinting CUPS filters and backends
 Name:    cups-filters
 Version: 1.0.35
-Release: 15%{?dist}
+Release: 15%{?dist}.1
 
 # For a breakdown of the licensing, see COPYING file
 # GPLv2:   filters: commandto*, imagetoraster, pdftops, rasterto*,
@@ -31,6 +31,8 @@ Patch6:  cups-filters-format-mismatch.patch
 Patch7:  cups-filters-pdf-landscape.patch
 Patch8:  cups-filters-pdftoopvp.patch
 Patch9:  cups-filters-CVE-2013-6475.patch
+Patch10: cups-filters-CVE-2014-4337.patch
+Patch11: cups-filters-CVE-2014-4338.patch
 
 Requires: cups-filters-libs%{?_isa} = %{version}-%{release}
 
@@ -133,6 +135,15 @@ This is the development package for OpenPrinting CUPS filters and backends.
 # Apply CVE-2013-6475 to pdftoopvp even though we don't ship it
 # (bug #1052741).
 %patch9 -p1 -b .CVE-2013-6475
+
+# Applied upstream patch for cups-browsed DoS via
+# process_browse_data() out-of-bounds read (CVE-2014-4337,
+# bug #1111510).
+%patch10 -p1 -b .CVE-2014-4337
+
+# Applied upstream patch to fix BrowseAllow parsing issue
+# (CVE-2014-4338, bug #1091568).
+%patch11 -p1 -b .CVE-2014-4338
 
 %build
 # work-around Rpath
@@ -240,6 +251,13 @@ fi
 %{_libdir}/libfontembed.so
 
 %changelog
+* Wed Oct  8 2014 Tim Waugh <twaugh@redhat.com> - 1.0.35-15:.1
+- Applied upstream patch to fix BrowseAllow parsing issue
+  (CVE-2014-4338, bug #1091568).
+- Applied upstream patch for cups-browsed DoS via
+  process_browse_data() out-of-bounds read (CVE-2014-4337,
+  bug #1111510).
+
 * Fri Mar 28 2014 Tim Waugh <twaugh@redhat.com> - 1.0.35-15
 - The texttopdf filter requires a TrueType monospaced font
   (bug #1070729).
