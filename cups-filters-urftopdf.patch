@@ -1,0 +1,38 @@
+diff -up cups-filters-1.0.35/Makefile.am.urftopdf cups-filters-1.0.35/Makefile.am
+--- cups-filters-1.0.35/Makefile.am.urftopdf	2013-08-30 11:16:08.166987338 +0100
++++ cups-filters-1.0.35/Makefile.am	2013-08-30 11:16:09.181993633 +0100
+@@ -402,8 +402,8 @@ pkgfilter_PROGRAMS += \
+ 	pdftoraster \
+ 	rastertoescpx \
+ 	rastertopclx \
+-	texttopdf \
+-	urftopdf
++	texttopdf
++
+ if ENABLE_IMAGEFILTERS
+ pkgfilter_PROGRAMS += \
+ 	imagetopdf \
+diff -up cups-filters-1.0.35/Makefile.in.urftopdf cups-filters-1.0.35/Makefile.in
+--- cups-filters-1.0.35/Makefile.in.urftopdf	2013-08-30 11:16:14.880027661 +0100
++++ cups-filters-1.0.35/Makefile.in	2013-08-30 11:17:44.440432004 +0100
+@@ -66,7 +66,7 @@ pkgfilter_PROGRAMS = pdftoopvp$(EXEEXT)
+ 	bannertopdf$(EXEEXT) commandtoescpx$(EXEEXT) \
+ 	commandtopclx$(EXEEXT) pdftoijs$(EXEEXT) pdftops$(EXEEXT) \
+ 	pdftoraster$(EXEEXT) rastertoescpx$(EXEEXT) \
+-	rastertopclx$(EXEEXT) texttopdf$(EXEEXT) urftopdf$(EXEEXT) \
++	rastertopclx$(EXEEXT) texttopdf$(EXEEXT) \
+ 	$(am__EXEEXT_1)
+ @ENABLE_IMAGEFILTERS_TRUE@am__append_1 = \
+ @ENABLE_IMAGEFILTERS_TRUE@	imagetopdf \
+diff -up cups-filters-1.0.35/mime/cupsfilters.convs.urftopdf cups-filters-1.0.35/mime/cupsfilters.convs
+--- cups-filters-1.0.35/mime/cupsfilters.convs.urftopdf	2013-08-30 11:11:24.693868551 +0100
++++ cups-filters-1.0.35/mime/cupsfilters.convs	2013-08-30 11:11:44.149958234 +0100
+@@ -68,7 +68,6 @@ image/x-xpixmap		application/vnd.cups-pd
+ image/x-xwindowdump	application/vnd.cups-pdf		65	imagetopdf
+ image/x-sun-raster	application/vnd.cups-pdf		65	imagetopdf
+ application/vnd.cups-pdf-banner	application/pdf			32	bannertopdf
+-image/urf		application/pdf				0	urftopdf
+ 
+ ########################################################################
+ #
+diff -up cups-filters-1.0.35/mime/cupsfilters.types.urftopdf cups-filters-1.0.35/mime/cupsfilters.types

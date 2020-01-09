@@ -1,0 +1,29 @@
+diff -up cups-filters-1.0.35/filter/pdftops.c.pdf-landscape cups-filters-1.0.35/filter/pdftops.c
+--- cups-filters-1.0.35/filter/pdftops.c.pdf-landscape	2013-06-24 22:59:27.000000000 +0100
++++ cups-filters-1.0.35/filter/pdftops.c	2013-10-16 15:53:51.766917387 +0100
+@@ -626,21 +626,17 @@ main(int  argc,				/* I - Number of comm
+     else if ((renderer == PDFTOPS) || (renderer == PDFTOCAIRO))
+     {
+      /*
+-      *  Use the page sizes of the original PDF document, this way documents
+-      *  which contain pages of different sizes can be printed correctly
++      * No options to add. Note: pdftopdf has already rotated pages
++      * for us.
+       */
+-
+-      pdf_argv[pdf_argc++] = (char *)"-origpagesizes";
+     }
+ #endif /* HAVE_POPPLER_PDFTOPS_WITH_ORIGPAGESIZES */
+     else if (renderer == ACROREAD)
+     {
+      /*
+-      * Use the page sizes of the original PDF document, this way documents
+-      * which contain pages of different sizes can be printed correctly
++      * No options to add. Note: pdftopdf has already rotated pages
++      * for us.
+       */
+-     
+-      pdf_argv[pdf_argc++] = (char *)"-choosePaperByPDFPageSize";
+     }
+ 
+    /*

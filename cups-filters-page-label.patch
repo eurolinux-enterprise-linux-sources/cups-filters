@@ -1,0 +1,229 @@
+diff -up cups-filters-1.0.35/filter/pdftopdf/pdftopdf.cc.page-label cups-filters-1.0.35/filter/pdftopdf/pdftopdf.cc
+--- cups-filters-1.0.35/filter/pdftopdf/pdftopdf.cc.page-label	2013-04-09 19:14:42.000000000 +0100
++++ cups-filters-1.0.35/filter/pdftopdf/pdftopdf.cc	2013-07-24 08:49:23.919081384 +0100
+@@ -9,6 +9,8 @@
+ #include <assert.h>
+ #include <cups/cups.h>
+ #include <cups/ppd.h>
++#include <iomanip>
++#include <sstream>
+ #include <memory>
+ 
+ #include "pdftopdf_processor.h"
+@@ -402,8 +404,27 @@ void getParameters(ppd_file_t *ppd,int n
+     param.reverse=ppdDefaultOrder(ppd);
+   }
+ 
+-  // TODO: pageLabel  (not used)
+-  // param.pageLabel=cupsGetOption("page-label",num_options,options);  // strdup?
++  std::string rawlabel;
++  char *classification = getenv("CLASSIFICATION");
++  if (classification)
++    rawlabel.append (classification);
++
++  if ( (val=cupsGetOption("page-label", num_options, options)) != NULL) {
++    if (!rawlabel.empty())
++      rawlabel.append (" - ");
++    rawlabel.append(cupsGetOption("page-label",num_options,options));
++  }
++
++  std::ostringstream cookedlabel;
++  for (std::string::iterator it = rawlabel.begin();
++       it != rawlabel.end ();
++       ++it) {
++    if (*it < 32 || *it > 126)
++      cookedlabel << "\\" << std::oct << std::setfill('0') << std::setw(3) << (unsigned int) *it;
++    else
++      cookedlabel.put (*it);
++  }
++  param.pageLabel = cookedlabel.str ();
+ 
+   if ( (val=cupsGetOption("page-set",num_options,options)) != NULL) {
+     if (strcasecmp(val,"even")==0) {
+diff -up cups-filters-1.0.35/filter/pdftopdf/pdftopdf_processor.cc.page-label cups-filters-1.0.35/filter/pdftopdf/pdftopdf_processor.cc
+--- cups-filters-1.0.35/filter/pdftopdf/pdftopdf_processor.cc.page-label	2013-02-15 17:37:59.000000000 +0000
++++ cups-filters-1.0.35/filter/pdftopdf/pdftopdf_processor.cc	2013-07-24 09:50:04.437720618 +0100
+@@ -80,12 +80,8 @@ void ProcessingParameters::dump() const
+   fprintf(stderr,"evenDuplex: %s\n",
+                  (evenDuplex)?"true":"false");
+ 
+-/*
+-  // std::string pageLabel; // or NULL?  must stay/dup!
+-  ...
+-  ...
+-
+-*/
++  fprintf(stderr,"pageLabel: %s\n",
++	  pageLabel.empty () ? "(none)" : pageLabel.c_str());
+ 
+   fprintf(stderr,"bookletMode: ");
+   BookletMode_dump(booklet);
+@@ -206,6 +202,10 @@ bool processPDFTOPDF(PDFTOPDF_Processor
+         page->mirror();
+       }
+ 
++      if (!param.pageLabel.empty()) {
++	page->add_label(param.page, param.pageLabel);
++      }
++
+       // place border
+       if ( (param.border!=BorderType::NONE)&&(iA<numOrigPages) ) {
+ #if 0 // would be nice, but is not possible
+@@ -310,6 +310,10 @@ const bool origls=param.nup.landscape;
+         page->add_border_rect(rect,param.border,1.0/pgedit.scale);
+       }
+ 
++      if (!param.pageLabel.empty()) {
++	page->add_label(param.page, param.pageLabel);
++      }
++
+       if (!param.fitplot) {
+         curpage->add_subpage(page,pgedit.xpos+xpos,pgedit.ypos+ypos,pgedit.scale,&rect);
+       } else {
+diff -up cups-filters-1.0.35/filter/pdftopdf/pdftopdf_processor.h.page-label cups-filters-1.0.35/filter/pdftopdf/pdftopdf_processor.h
+--- cups-filters-1.0.35/filter/pdftopdf/pdftopdf_processor.h.page-label	2012-11-15 15:58:39.000000000 +0000
++++ cups-filters-1.0.35/filter/pdftopdf/pdftopdf_processor.h	2013-07-24 08:49:23.920081389 +0100
+@@ -20,7 +20,7 @@ struct ProcessingParameters {
+       border(NONE),
+       reverse(false),
+ 
+-//      pageLabel(NULL),
++      pageLabel(),
+       evenPages(true),oddPages(true),
+ 
+       mirror(false),
+@@ -60,7 +60,7 @@ struct ProcessingParameters {
+   NupParameters nup;
+   bool reverse;
+ 
+-  // std::string pageLabel; // or NULL?  must stay/dup!
++  std::string pageLabel;
+   bool evenPages,oddPages;
+   IntervalSet pageRange;
+ 
+@@ -105,6 +105,7 @@ public:
+   virtual void add_subpage(const std::shared_ptr<PDFTOPDF_PageHandle> &sub,float xpos,float ypos,float scale,const PageRect *crop=NULL) =0;
+   virtual void mirror() =0;
+   virtual void rotate(Rotation rot) =0;
++  virtual void add_label(const PageRect &rect, const std::string label) =0;
+ };
+ 
+ // TODO: ... error output?
+diff -up cups-filters-1.0.35/filter/pdftopdf/qpdf_pdftopdf_processor.cc.page-label cups-filters-1.0.35/filter/pdftopdf/qpdf_pdftopdf_processor.cc
+--- cups-filters-1.0.35/filter/pdftopdf/qpdf_pdftopdf_processor.cc.page-label	2013-03-14 20:32:42.000000000 +0000
++++ cups-filters-1.0.35/filter/pdftopdf/qpdf_pdftopdf_processor.cc	2013-07-24 08:49:23.920081389 +0100
+@@ -257,6 +257,94 @@ void QPDF_PDFTOPDF_PageHandle::rotate(Ro
+ }
+ // }}}
+ 
++void QPDF_PDFTOPDF_PageHandle::add_label(const PageRect &_rect, const std::string label) // {{{
++{
++  assert(isExisting());
++
++  PageRect rect = ungetRect (_rect, *this, rotation, page);
++
++  assert (rect.left <= rect.right);
++  assert (rect.bottom <= rect.top);
++
++  // TODO: Only add in the font once, not once per page.
++  QPDFObjectHandle font = page.getOwningQPDF()->makeIndirectObject (
++    QPDFObjectHandle::parse(
++      "<<"
++      " /Type /Font"
++      " /Subtype /Type1"
++      " /Name /pagelabel-font"
++      " /BaseFont /Helvetica" // TODO: support UTF-8 labels?
++      ">>"));
++  QPDFObjectHandle resources = page.getKey ("/Resources");
++  QPDFObjectHandle rfont = resources.getKey ("/Font");
++  rfont.replaceKey ("/pagelabel-font", font);
++
++  double margin = 2.25;
++  double height = 12;
++
++  std::string boxcmd = "q\n";
++
++  // White filled rectangle (top)
++  boxcmd += "  1 1 1 rg\n";
++  boxcmd += "  " + QUtil::double_to_string(rect.left + margin) + " " +
++		   QUtil::double_to_string(rect.top - height - 2 * margin) + " " +
++		   QUtil::double_to_string(rect.right - rect.left - 2 * margin) + " " +
++		   QUtil::double_to_string(height + 2 * margin) + " re f\n";
++
++  // White filled rectangle (bottom)
++  boxcmd += "  " + QUtil::double_to_string(rect.left + margin) + " " +
++		   QUtil::double_to_string(rect.bottom + height + margin) + " " +
++		   QUtil::double_to_string(rect.right - rect.left - 2 * margin) + " " +
++		   QUtil::double_to_string(height + 2 * margin) + " re f\n";
++
++  // Black outline (top)
++  boxcmd += "  0 0 0 RG\n";
++  boxcmd += "  " + QUtil::double_to_string(rect.left + margin) + " " +
++		   QUtil::double_to_string(rect.top - height - 2 * margin) + " " +
++		   QUtil::double_to_string(rect.right - rect.left - 2 * margin) + " " +
++		   QUtil::double_to_string(height + 2 * margin) + " re S\n";
++
++  // Black outline (bottom)
++  boxcmd += "  " + QUtil::double_to_string(rect.left + margin) + " " +
++		   QUtil::double_to_string(rect.bottom + height + margin) + " " +
++		   QUtil::double_to_string(rect.right - rect.left - 2 * margin) + " " +
++		   QUtil::double_to_string(height + 2 * margin) + " re S\n";
++
++  // Black text (top)
++  boxcmd += "  0 0 0 rg\n";
++  boxcmd += "  BT\n";
++  boxcmd += "  /pagelabel-font 12 Tf\n";
++  boxcmd += "  " + QUtil::double_to_string(rect.left + 2 * margin) + " " +
++		   QUtil::double_to_string(rect.top - height - margin) + " Td\n";
++  boxcmd += "  (" + label + ") Tj\n";
++  boxcmd += "  ET\n";
++
++  // Black text (bottom)
++  boxcmd += "  BT\n";
++  boxcmd += "  /pagelabel-font 12 Tf\n";
++  boxcmd += "  " + QUtil::double_to_string(rect.left + 2 * margin) + " " +
++		   QUtil::double_to_string(rect.bottom + height + 2 * margin) + " Td\n";
++  boxcmd += "  (" + label + ") Tj\n";
++  boxcmd += "  ET\n";
++
++  boxcmd += "Q\n";
++
++  assert(page.getOwningQPDF()); // existing pages are always indirect
++  static const char *pre="%pdftopdf q\n"
++                         "q\n",
++                    *post="%pdftopdf Q\n"
++                          "Q\n";
++
++  QPDFObjectHandle stm1=QPDFObjectHandle::newStream(page.getOwningQPDF(),
++						    pre),
++                   stm2=QPDFObjectHandle::newStream(page.getOwningQPDF(),
++						    std::string(post) + boxcmd);
++
++  page.addPageContents(stm1,true); // before
++  page.addPageContents(stm2,false); // after
++}
++// }}}
++
+ void QPDF_PDFTOPDF_PageHandle::debug(const PageRect &rect,float xpos,float ypos) // {{{
+ {
+   assert(!isExisting());
+@@ -264,7 +352,7 @@ void QPDF_PDFTOPDF_PageHandle::debug(con
+ }
+ // }}}
+ 
+-
++// }}}
+ void QPDF_PDFTOPDF_Processor::closeFile() // {{{
+ {
+   pdf.reset();
+diff -up cups-filters-1.0.35/filter/pdftopdf/qpdf_pdftopdf_processor.h.page-label cups-filters-1.0.35/filter/pdftopdf/qpdf_pdftopdf_processor.h
+--- cups-filters-1.0.35/filter/pdftopdf/qpdf_pdftopdf_processor.h.page-label	2012-11-15 15:58:39.000000000 +0000
++++ cups-filters-1.0.35/filter/pdftopdf/qpdf_pdftopdf_processor.h	2013-07-24 08:49:23.920081389 +0100
+@@ -11,6 +11,7 @@ public:
+   virtual void add_subpage(const std::shared_ptr<PDFTOPDF_PageHandle> &sub,float xpos,float ypos,float scale,const PageRect *crop=NULL);
+   virtual void mirror();
+   virtual void rotate(Rotation rot);
++  virtual void add_label(const PageRect &rect, const std::string label);
+ 
+   void debug(const PageRect &rect,float xpos,float ypos);
+ private:
