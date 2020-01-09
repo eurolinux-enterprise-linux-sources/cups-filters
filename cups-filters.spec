@@ -4,7 +4,7 @@
 Summary: OpenPrinting CUPS filters and backends
 Name:    cups-filters
 Version: 1.0.35
-Release: 15%{?dist}.1
+Release: 21%{?dist}
 
 # For a breakdown of the licensing, see COPYING file
 # GPLv2:   filters: commandto*, imagetoraster, pdftops, rasterto*,
@@ -33,6 +33,10 @@ Patch8:  cups-filters-pdftoopvp.patch
 Patch9:  cups-filters-CVE-2013-6475.patch
 Patch10: cups-filters-CVE-2014-4337.patch
 Patch11: cups-filters-CVE-2014-4338.patch
+Patch12: cups-filters-poppler023.patch
+Patch13: cups-filters-browsed-underscore.patch
+Patch14: cups-filters-browsed-efficiency.patch
+Patch15: cups-filters-CVE-2015-3258-3279.patch
 
 Requires: cups-filters-libs%{?_isa} = %{version}-%{release}
 
@@ -145,6 +149,20 @@ This is the development package for OpenPrinting CUPS filters and backends.
 # (CVE-2014-4338, bug #1091568).
 %patch11 -p1 -b .CVE-2014-4338
 
+# Build against newer poppler (bug #1217552).
+%patch12 -p1 -b .poppler023
+
+# Fix cups-browsed "_" handling for printer names (bug #1167408).
+%patch13 -p1 -b .browsed-underscore
+
+# Improve cups-browsed efficiency (bug #1191691).
+# Fetch printer descriptions with cups-browsed (bug #1223719).
+%patch14 -p1 -b .browsed-efficiency
+
+# Fix heap-based buffer overflow in texttopdf filter (bug #1194263,
+# CVE-2015-3258, CVE-2015-3279).
+%patch15 -p1 -b .CVE-2015-3258-3279
+
 %build
 # work-around Rpath
 ./autogen.sh
@@ -251,7 +269,23 @@ fi
 %{_libdir}/libfontembed.so
 
 %changelog
-* Wed Oct  8 2014 Tim Waugh <twaugh@redhat.com> - 1.0.35-15:.1
+* Thu Jul  9 2015 Tim Waugh <twaugh@redhat.com> - 1.0.35-21
+- Fix heap-based buffer overflow in texttopdf filter (bug #1241242,
+  CVE-2015-3258, CVE-2015-3279).
+
+* Thu Jun 25 2015 Tim Waugh <twaugh@redhat.com> - 1.0.35-20
+- Improvements to cups-browsed efficiency patch (bug #1191691).
+
+* Mon Jun 22 2015 Tim Waugh <twaugh@redhat.com> - 1.0.35-18
+- Fix segfault in texttopdf filter (bug #1194263).
+- Improve cups-browsed efficiency (bug #1191691).
+- Fetch printer descriptions with cups-browsed (bug #1223719).
+- Fix cups-browsed "_" handling for printer names (bug #1167408).
+
+* Tue Jun 16 2015 Tim Waugh <twaugh@redhat.com> - 1.0.35-17
+- Build against newer poppler (bug #1217552).
+
+* Wed Oct  8 2014 Tim Waugh <twaugh@redhat.com> - 1.0.35-16
 - Applied upstream patch to fix BrowseAllow parsing issue
   (CVE-2014-4338, bug #1091568).
 - Applied upstream patch for cups-browsed DoS via
