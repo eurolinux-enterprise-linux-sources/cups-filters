@@ -4,7 +4,7 @@
 Summary: OpenPrinting CUPS filters and backends
 Name:    cups-filters
 Version: 1.0.35
-Release: 22%{?dist}
+Release: 26%{?dist}
 
 # For a breakdown of the licensing, see COPYING file
 # GPLv2:   filters: commandto*, imagetoraster, pdftops, rasterto*,
@@ -20,23 +20,30 @@ License: GPLv2 and GPLv2+ and GPLv3 and GPLv3+ and LGPLv2+ and MIT
 Group:   System Environment/Base
 Url:     http://www.linuxfoundation.org/collaborate/workgroups/openprinting/cups-filters
 Source0: http://www.openprinting.org/download/cups-filters/cups-filters-%{version}.tar.xz
-Source1: cups-browsed.service
 
-Patch1:  cups-filters-man.patch
-Patch2:  cups-filters-lookup.patch
-Patch3:  cups-filters-page-label.patch
-Patch4:  cups-filters-filter-costs.patch
-Patch5:  cups-filters-urftopdf.patch
-Patch6:  cups-filters-format-mismatch.patch
-Patch7:  cups-filters-pdf-landscape.patch
-Patch8:  cups-filters-pdftoopvp.patch
-Patch9:  cups-filters-CVE-2013-6475.patch
-Patch10: cups-filters-CVE-2014-4337.patch
-Patch11: cups-filters-CVE-2014-4338.patch
-Patch12: cups-filters-poppler023.patch
-Patch13: cups-filters-browsed-underscore.patch
-Patch14: cups-filters-browsed-efficiency.patch
-Patch15: cups-filters-CVE-2015-3258-3279.patch
+# source files from cups-filters-1.13.4 for partial rebase of cups-browsed and introducing
+# implicitclass backend for high availability and load balancing
+Source1: backend.tar.gz
+Source2: m4.tar.gz
+Source3: utils.tar.gz
+Source4: configure.ac
+Source5: Makefile.am
+
+Patch1:  cups-filters-page-label.patch
+Patch2:  cups-filters-filter-costs.patch
+Patch3:  cups-filters-urftopdf.patch
+Patch4:  cups-filters-format-mismatch.patch
+Patch5:  cups-filters-pdf-landscape.patch
+Patch6:  cups-filters-pdftoopvp.patch
+Patch7:  cups-filters-CVE-2013-6475.patch
+Patch8:  cups-filters-poppler023.patch
+Patch9:  cups-filters-CVE-2015-3258-3279.patch
+# fixed covscan issues from upstream
+Patch10: 0001-Fixing-covscan-issues.patch
+# badly fixed coverity issue (bug #1700333)
+Patch11: 0001-cups-browsed-Fixed-freeing-of-literal-string-caused-.patch
+# bad paths in manpages (bug #1508018)
+Patch12: cups-filters-manpages.patch
 
 Requires: cups-filters-libs%{?_isa} = %{version}-%{release}
 
@@ -72,6 +79,13 @@ BuildRequires: python-cups
 BuildRequires: autoconf
 BuildRequires: automake
 BuildRequires: libtool
+
+# gdbus-codegen is used in Makefile.am for generating cups-notifier code,
+# so we need glib2-devel
+BuildRequires: glib2-devel
+
+# dbus-devel is needed for new dbus CMS functionality
+BuildRequires: dbus-devel
 
 Requires: cups-filesystem
 Requires: poppler-utils
@@ -114,54 +128,51 @@ This package provides cupsfilters and fontembed libraries.
 This is the development package for OpenPrinting CUPS filters and backends.
 
 %prep
-%setup -q
-%patch1 -p1 -b .man
-%patch2 -p1 -b .lookup
+# untar m4.tar.gz, backend.tar.gz and utils.tar.gz after untaring main source
+# tarball and going into the it
+%setup -q -a 1 -a 2 -a 3
+
+# copy configure.ac and Makefile.am into untared directory
+cp %{SOURCE4} .
+cp %{SOURCE5} .
 
 # Added support for page-label (bug #987515).
-%patch3 -p1 -b .page-label
+%patch1 -p1 -b .page-label
 
 # Upstream patch to re-work filter costs (bug #998981).
-%patch4 -p1 -b .filter-costs
+%patch2 -p1 -b .filter-costs
 
 # Don't ship urftopdf for now (bug #1002947).
-%patch5 -p1 -b .urftopdf
+%patch3 -p1 -b .urftopdf
 
 # Fixes for some printf-type format mismatches (bug #1003035).
-%patch6 -p1 -b .format-mismatch
+%patch4 -p1 -b .format-mismatch
 
 # Fix PDF landscape printing (bug #1018313).
-%patch7 -p1 -b .pdf-landscape
+%patch5 -p1 -b .pdf-landscape
 
 # Don't ship pdftoopvp for now (bug #1027557).
-%patch8 -p1 -b .pdftoopvp
+%patch6 -p1 -b .pdftoopvp
 
 # Apply CVE-2013-6475 to pdftoopvp even though we don't ship it
 # (bug #1052741).
-%patch9 -p1 -b .CVE-2013-6475
-
-# Applied upstream patch for cups-browsed DoS via
-# process_browse_data() out-of-bounds read (CVE-2014-4337,
-# bug #1111510).
-%patch10 -p1 -b .CVE-2014-4337
-
-# Applied upstream patch to fix BrowseAllow parsing issue
-# (CVE-2014-4338, bug #1091568).
-%patch11 -p1 -b .CVE-2014-4338
+%patch7 -p1 -b .CVE-2013-6475
 
 # Build against newer poppler (bug #1217552).
-%patch12 -p1 -b .poppler023
-
-# Fix cups-browsed "_" handling for printer names (bug #1167408).
-%patch13 -p1 -b .browsed-underscore
-
-# Improve cups-browsed efficiency (bug #1191691).
-# Fetch printer descriptions with cups-browsed (bug #1223719).
-%patch14 -p1 -b .browsed-efficiency
+%patch8 -p1 -b .poppler023
 
 # Fix heap-based buffer overflow in texttopdf filter (bug #1194263,
 # CVE-2015-3258, CVE-2015-3279).
-%patch15 -p1 -b .CVE-2015-3258-3279
+%patch9 -p1 -b .CVE-2015-3258-3279
+
+# fixed covscan issues from upstream
+%patch10 -p1 -b .covscan
+
+# 1700333 - [abrt] [faf] cups-filters: raise(): /usr/sbin/cups-browsed killed by 6
+%patch11 -p1 -b .abrt-during-restart
+
+# 1508018 - man pages: wrong links in man cups-browsed
+%patch12 -p1 -b .manpages
 
 %build
 # work-around Rpath
@@ -192,7 +203,7 @@ rm -f %{buildroot}%{_bindir}/ttfread
 
 # systemd unit file
 mkdir -p %{buildroot}%{_unitdir}
-install -p -m 644 %{SOURCE1} %{buildroot}%{_unitdir}
+install -p -m 644 utils/cups-browsed.service %{buildroot}%{_unitdir}
 
 %post
 %systemd_post cups-browsed.service
@@ -239,6 +250,7 @@ fi
 %config(noreplace) %{_sysconfdir}/cups/cups-browsed.conf
 %attr(0755,root,root) %{_cups_serverbin}/filter/*
 %attr(0755,root,root) %{_cups_serverbin}/backend/parallel
+%attr(0755,root,root) %{_cups_serverbin}/backend/implicitclass
 # Serial backend needs to run as root (bug #212577#c4).
 %attr(0700,root,root) %{_cups_serverbin}/backend/serial
 %{_datadir}/cups/banners
@@ -269,6 +281,18 @@ fi
 %{_libdir}/libfontembed.so
 
 %changelog
+* Tue May 21 2019 Zdenek Dohnal <zdohnal@redhat.com> - 1.0.35-26
+- 1508018 - man pages: wrong links in man cups-browsed
+
+* Wed Apr 17 2019 Zdenek Dohnal <zdohnal@redhat.com> - 1.0.35-25
+- 1700333 - [abrt] [faf] cups-filters: raise(): /usr/sbin/cups-browsed killed by 6
+
+* Mon Mar 18 2019 Zdenek Dohnal <zdohnal@redhat.com> - 1.0.35-24
+- fixing covscan issues, backported from upstream - 1485502
+
+* Wed Feb 20 2019 Zdenek Dohnal <zdohnal@redhat.com> - 1.0.35-23
+- 1485502 - Rebase cups-browsed to latest version in upstream cups-filters
+
 * Thu Mar 02 2017 Zdenek Dohnal <zdohnal@redhat.com> - 1.0.35-22
 - 1427690 - /usr/lib/cups/filter/pstopdf: line 17: which: command not found
 
